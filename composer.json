@@ -1,0 +1,11 @@
+{
+    "name": "kingkool68/wp-styleguide",
+    "description": "Enable styleguide files for your theme",
+    "type": "wordpress-plugin",
+    "authors": [
+        {
+            "name": "Russell Heimlich",
+            "email": "kingkool68@gmail.com"
+        }
+    ]
+}
