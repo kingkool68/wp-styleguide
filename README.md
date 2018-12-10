@@ -17,7 +17,7 @@ my-theme/
 A request to `/styleguide/colors/` would look for `my-theme/styelguide/colors.php`. What you put in those files is up to you and your styleguide.
 
 ## Sass Color Helper function
-To get color values from a Sass file you can call `WP_Styleguide::get_sass_colors()` passing in the path to a sss file to parse.
+To get color values from a Sass file you can call `WP_Styleguide::get_sass_colors()` passing in the path to a scss file to parse.
 
 You'll get back an array of hex colors keyed by their Sass variables.
 
