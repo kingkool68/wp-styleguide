@@ -1,7 +1,4 @@
 <?php
-if ( class_exists('WP_Styleguide') ) {
-	return;
-}
 
 class WP_Styleguide {
 
@@ -107,48 +104,63 @@ class WP_Styleguide {
 	}
 
 	/**
-	 * Parse a given Sass file and get all of the color variables out
+	 * Parse a list of given files looking for 3 or 6 digit hex codes
 	 *
-	 * @param  string $file Path to scss file for parsing
-	 * @return array       Array of Sass variables => hex colors
+	 * @param  array  $files List of files to parse
+	 * @return array         Output keyed to the sass variable containing the hex color value and any comments
 	 */
-	public static function get_sass_colors( $file = '' ) {
-		$output = array();
-		$handle = fopen( $file, 'r' );
-		if ( ! $handle ) {
-			return $output;
+	public static function get_sass_colors( $files = array() ) {
+		if ( ! is_array( $files ) ) {
+			$files = array( $files );
 		}
-		while ( $line = fgets( $handle ) ) {
-			$line = trim( $line );
-			if ( empty( $line ) ) {
-				continue;
-			}
 
-			// Match 3 or 6 character hex code patterns
-			preg_match( '/#([a-f0-9]{3}){1,2}\b/i', $line, $match );
-			if ( empty( $match[0] ) ) {
-				continue;
+		$output = [];
+		foreach ( $files as $file ) :
+			$handle = fopen( $file, 'r' );
+			if ( ! $handle ) {
+				return $output;
 			}
-			$value = $match[0];
-			$value = str_replace( '#', '', $value );
-			if ( ! $value ) {
-				continue;
-			}
+			while ( $line = fgets( $handle ) ) {
+				$line = trim( $line );
+				if ( empty( $line ) ) {
+					continue;
+				}
 
-			// Match Sass variable names:
-			// - Starts with $
-			// - Contains a-z, A-Z, 0-9
-			// - Contains hyphen or underscore
-			// - Has a colon in it
-			preg_match( '/(\$[0-9a-z_\-]+)(.*):/i', $line, $match );
-			if ( empty( $match[1] ) ) {
-				continue;
-			}
-			$variable = $match[1];
+				// Match 3 or 6 character hex code patterns
+				preg_match( '/#([a-f0-9]{3}){1,2}\b/i', $line, $match );
+				if ( empty( $match[0] ) ) {
+					continue;
+				}
+				$value = $match[0];
+				$value = str_replace( '#', '', $value );
+				if ( ! $value ) {
+					continue;
+				}
 
-			$output[ $variable ] = $value;
-		}
-		fclose( $handle );
+				// Match Sass variable names:
+				// - Starts with $
+				// - Contains a-z, A-Z, 0-9
+				// - Contains hyphen or underscore
+				// - Has a colon in it
+				preg_match( '/(\$[0-9a-z_\-]+)(.*):/i', $line, $match );
+				if ( empty( $match[1] ) ) {
+					continue;
+				}
+				$variable = $match[1];
+
+				$comment = '';
+				$comment_parts = explode( '//', $line );
+				if ( ! empty( $comment_parts[1] ) ) {
+					$comment = trim( $comment_parts[1] );
+				}
+
+				$output[ $variable ] = [
+					'hex'     => $value,
+					'comment' => $comment,
+				];
+			}
+			fclose( $handle );
+		endforeach;
 		return $output;
 	}
 }
