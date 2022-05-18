@@ -29,6 +29,7 @@ class WP_Styleguide {
 	public function setup_filters() {
 		add_filter( 'query_vars', array( $this, 'filter_query_vars' ) );
 		add_filter( 'template_include', array( $this, 'filter_template_include' ) );
+		add_filter( 'wp_title', array( $this, 'filter_wp_title' ), 10 );
 	}
 
 	/**
@@ -101,6 +102,23 @@ class WP_Styleguide {
 			die();
 		}
 		return $template;
+	}
+	
+	/**
+	 * Set the <title> of styleguide pages by prettifying the styleguide path being requested
+	 *
+	 * @param string $title The page title to be modified
+	 */
+	public function filter_wp_title( $title = '' ) {
+		$path = get_query_var( 'styleguide_path' );
+		if ( ! empty( $path ) ) {
+			$title  = $path;
+			$title  = str_replace( '-', ' ', $title );
+			$title  = ucwords( $title );
+			$title .= ' - ' . get_bloginfo( 'name' ) . ' Styleguide';
+		}
+		$title = apply_filters( 'wp_styleguide/wp_title', $title, $path );
+		return $title;
 	}
 
 	/**
