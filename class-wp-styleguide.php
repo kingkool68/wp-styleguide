@@ -129,10 +129,11 @@ class WP_Styleguide {
 	public static function is_styleguide_request() {
 		return ! empty( get_query_var( 'styleguide' ) );
 	}
+
 	/**
 	 * Parse a list of given files looking for 3 or 6 digit hex codes
 	 *
-	 * @param  array  $files List of files to parse
+	 * @param  array $files List of files to parse
 	 * @return array         Output keyed to the sass variable containing the hex color value and any comments
 	 */
 	public static function get_sass_colors( $files = array() ) {
@@ -140,7 +141,7 @@ class WP_Styleguide {
 			$files = array( $files );
 		}
 
-		$output = [];
+		$output = array();
 		foreach ( $files as $file ) :
 			$handle = fopen( $file, 'r' );
 			if ( ! $handle ) {
@@ -174,16 +175,16 @@ class WP_Styleguide {
 				}
 				$variable = $match[1];
 
-				$comment = '';
+				$comment       = '';
 				$comment_parts = explode( '//', $line );
 				if ( ! empty( $comment_parts[1] ) ) {
 					$comment = trim( $comment_parts[1] );
 				}
 
-				$output[ $variable ] = [
+				$output[ $variable ] = array(
 					'hex'     => $value,
 					'comment' => $comment,
-				];
+				);
 			}
 			fclose( $handle );
 		endforeach;
