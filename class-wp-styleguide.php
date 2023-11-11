@@ -44,7 +44,7 @@ class WP_Styleguide {
 	 * Redirect styleguide requests that don't have a trailing slash
 	 */
 	public function action_template_redirect() {
-		if ( empty( get_query_var( 'styleguide' ) ) ) {
+		if ( ! static::is_styleguide_request() ) {
 			// Not a styleguide request
 			return;
 		}
@@ -86,7 +86,7 @@ class WP_Styleguide {
 	 * @return string           The modified template
 	 */
 	public function filter_template_include( $template = '' ) {
-		if ( ! empty( get_query_var( 'styleguide' ) ) ) {
+		if ( static::is_styleguide_request() ) {
 			$path = 'index';
 			if ( ! empty( get_query_var( 'styleguide_path' ) ) ) {
 				$path = get_query_var( 'styleguide_path' );
@@ -121,6 +121,14 @@ class WP_Styleguide {
 		return $title;
 	}
 
+	/**
+	 * Check if the current request is to a styleguide page or not
+	 *
+	 * @return boolean
+	 */
+	public static function is_styleguide_request() {
+		return ! empty( get_query_var( 'styleguide' ) );
+	}
 	/**
 	 * Parse a list of given files looking for 3 or 6 digit hex codes
 	 *
