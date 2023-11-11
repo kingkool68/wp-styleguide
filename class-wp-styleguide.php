@@ -30,6 +30,7 @@ class WP_Styleguide {
 		add_filter( 'query_vars', array( $this, 'filter_query_vars' ) );
 		add_filter( 'template_include', array( $this, 'filter_template_include' ) );
 		add_filter( 'wp_title', array( $this, 'filter_wp_title' ), 10 );
+		add_filter( 'rank_math/frontend/title', array( $this, 'filter_wp_title' ) );
 	}
 
 	/**
@@ -70,7 +71,7 @@ class WP_Styleguide {
 	/**
 	 * Make WordPress aware of our styleguide query vars
 	 *
-	 * @param  array  $vars The query vars
+	 * @param  array $vars The query vars
 	 * @return array        Modified query vars
 	 */
 	public function filter_query_vars( $vars = array() ) {
