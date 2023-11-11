@@ -31,6 +31,7 @@ class WP_Styleguide {
 		add_filter( 'template_include', array( $this, 'filter_template_include' ) );
 		add_filter( 'wp_title', array( $this, 'filter_wp_title' ), 10 );
 		add_filter( 'rank_math/frontend/title', array( $this, 'filter_wp_title' ) );
+		add_filter( 'posts_request', array( $this, 'filter_posts_request' ), 10, 2 );
 	}
 
 	/**
@@ -120,6 +121,19 @@ class WP_Styleguide {
 		}
 		$title = apply_filters( 'wp_styleguide/wp_title', $title, $path );
 		return $title;
+	}
+
+	/**
+	 * Prevent the main query from running on styleguide requests
+	 *
+	 * @param  string   $request The complete SQL query
+	 * @param  WP_Query $query The WP_Query instance (passed by reference)
+	 */
+	public function filter_posts_request( $request = '', $query = array() ) {
+		if( static::is_styleguide_request() && $query->is_main_query() && ! $query->is_admin ){
+			return false;
+		}
+		return $request;
 	}
 
 	/**
