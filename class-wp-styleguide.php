@@ -39,13 +39,15 @@ class WP_Styleguide {
 	 */
 	public function action_init() {
 		add_rewrite_rule( '^styleguide/([^\.]+?)/?$', 'index.php?styleguide=1&styleguide_path=$matches[1]', 'top' );
-		add_rewrite_rule( '^styleguide/?', 'index.php?styleguide=1', 'top' );
+		add_rewrite_rule( '^styleguide/?$', 'index.php?styleguide=1', 'top' );
 	}
 
 	/**
 	 * Redirect styleguide requests that don't have a trailing slash
 	 */
 	public function action_template_redirect() {
+		global $wp;
+
 		if ( ! static::is_styleguide_request() ) {
 			// Not a styleguide request
 			return;
@@ -54,16 +56,22 @@ class WP_Styleguide {
 		if ( empty( $_SERVER['REQUEST_URI'] ) ) {
 			return;
 		}
-		$request = sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) );
-		$parts   = explode( '?', $request );
-		$request = $parts[0];
-		if ( '/' === substr( $request, -1 ) ) {
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Only parsed, never output. The redirect is built from home_url().
+		$request_uri  = wp_unslash( $_SERVER['REQUEST_URI'] );
+		$request_path = wp_parse_url( $request_uri, PHP_URL_PATH );
+		if ( empty( $request_path ) || '/' === substr( $request_path, -1 ) ) {
 			return;
 		}
-		$redirect = home_url( $wp->request );
+
+		// Always redirect to a path on this site with a trailing slash
+		$redirect = trailingslashit( home_url( $wp->request ) );
+
 		// If the request had a query string, add it back in
-		if ( ! empty( $parts[1] ) ) {
-			$redirect = add_query_arg( $parts[1], $redirect );
+		$query_string = wp_parse_url( $request_uri, PHP_URL_QUERY );
+		if ( ! empty( $query_string ) ) {
+			$query_args = array();
+			wp_parse_str( $query_string, $query_args );
+			$redirect = add_query_arg( urlencode_deep( $query_args ), $redirect );
 		}
 		wp_safe_redirect( $redirect, 301 );
 		die();
@@ -89,21 +97,97 @@ class WP_Styleguide {
 	 */
 	public function filter_template_include( $template = '' ) {
 		if ( static::is_styleguide_request() ) {
-			$path = 'index';
-			if ( ! empty( get_query_var( 'styleguide_path' ) ) ) {
-				$path = get_query_var( 'styleguide_path' );
+			$raw_path = get_query_var( 'styleguide_path' );
+			$path     = 'index';
+			if ( ! empty( $raw_path ) ) {
+				$path = static::sanitize_styleguide_path( $raw_path );
 			}
-			$styleguide_template = locate_template(
-				array( 'styleguide/' . $path . '.php' )
-			);
+			$styleguide_template = false;
+			if ( ! empty( $path ) ) {
+				$styleguide_template = static::locate_styleguide_template( $path );
+			}
 			if ( ! empty( $styleguide_template ) ) {
 				return $styleguide_template;
-			} else {
-				wp_die( 'Styleguide page not found! Looking for <code>/styleguide/' . esc_html( $path ) . '.php</code> in the theme directory.' );
 			}
-			die();
+			$display_path = is_string( $raw_path ) && '' !== $raw_path ? $raw_path : 'index';
+			wp_die(
+				'Styleguide page not found! Looking for <code>/styleguide/' . esc_html( $display_path ) . '.php</code> in the theme directory.',
+				'Styleguide page not found',
+				array( 'response' => 404 )
+			);
 		}
 		return $template;
+	}
+
+	/**
+	 * Validate and normalize a requested styleguide path
+	 *
+	 * Only letters, numbers, hyphens, underscores, and forward slashes are allowed.
+	 * Paths with a leading slash, empty segments, or `.`/`..` segments are rejected.
+	 *
+	 * @param  string $path The requested styleguide path
+	 * @return string|false  The normalized path or false if the path is not allowed
+	 */
+	public static function sanitize_styleguide_path( $path = '' ) {
+		if ( ! is_string( $path ) ) {
+			return false;
+		}
+
+		// Trailing slashes are fine (/styleguide/colors/), leading slashes are not
+		$path = rtrim( $path, '/' );
+		if ( '' === $path || '/' === substr( $path, 0, 1 ) ) {
+			return false;
+		}
+
+		if ( ! preg_match( '/^[a-z0-9_\-\/]+$/i', $path ) ) {
+			return false;
+		}
+
+		foreach ( explode( '/', $path ) as $segment ) {
+			if ( '' === $segment || '.' === $segment || '..' === $segment ) {
+				return false;
+			}
+		}
+
+		return $path;
+	}
+
+	/**
+	 * Locate a styleguide template and make sure it lives inside a theme's styleguide directory
+	 *
+	 * @param  string $path A path already validated by sanitize_styleguide_path()
+	 * @return string|false  Absolute path to the template file or false if not found
+	 */
+	public static function locate_styleguide_template( $path = '' ) {
+		$template = locate_template( array( 'styleguide/' . $path . '.php' ) );
+		if ( empty( $template ) ) {
+			return false;
+		}
+
+		$real_template = realpath( $template );
+		if ( false === $real_template ) {
+			return false;
+		}
+		$real_template = wp_normalize_path( $real_template );
+
+		$theme_dirs = array_unique(
+			array(
+				get_stylesheet_directory(),
+				get_template_directory(),
+			)
+		);
+		foreach ( $theme_dirs as $theme_dir ) {
+			$styleguide_dir = realpath( trailingslashit( $theme_dir ) . 'styleguide' );
+			if ( false === $styleguide_dir ) {
+				continue;
+			}
+			$styleguide_dir = trailingslashit( wp_normalize_path( $styleguide_dir ) );
+			if ( 0 === strpos( $real_template, $styleguide_dir ) ) {
+				return $template;
+			}
+		}
+
+		return false;
 	}
 	
 	/**
@@ -112,7 +196,10 @@ class WP_Styleguide {
 	 * @param string $title The page title to be modified
 	 */
 	public function filter_wp_title( $title = '' ) {
-		$path = get_query_var( 'styleguide_path' );
+		$path = '';
+		if ( static::is_styleguide_request() ) {
+			$path = (string) static::sanitize_styleguide_path( get_query_var( 'styleguide_path' ) );
+		}
 		if ( ! empty( $path ) ) {
 			$title  = $path;
 			$title  = str_replace( '-', ' ', $title );
